@@ -1,7 +1,6 @@
 // Parameters
 param vmName string
 param adminUser string
-param autoshutdowntimezone string
 param autoshutdowntime string
 
 @description('The email address of who created this. I do know how to force an email address so you must enter one')
@@ -144,7 +143,7 @@ resource autoshutdown 'Microsoft.DevTestLab/labs/schedules@2018-09-15' ={
   name: '${vmName}_shutdown'
   properties:{
     dailyRecurrence:{
-      time: '2000'
+      time: autoshutdowntime
     }
     timeZoneId:timezone
     notificationSettings:{
