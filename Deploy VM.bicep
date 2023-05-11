@@ -1,33 +1,28 @@
 // Parameters
-param vmName string =  ('test${auswest}')
-param adminUser string = 'bee_admin'
+param vmName string =  ('test${baseTime}')
 param autoshutdowntime string = '2000'
 param location string = 'australiaeast'
 param vmsize string = 'Standard_B1s'
 
 @description('The email address of who created this. I do know how to force an email address so you must enter one')
-param contact string
+param contact string = 'test@domain.com'
 
 //This block makes it so the name of my machines are amended with the time GMT + 8
-param baseTime string = utcNow('d')
-param auswest string = dateTimeAdd(baseTime, 'PT8H')
+param baseTime string = utcNow('HH')
+//param auswest string = dateTimeAdd(baseTime, 'PT8H')
 
 
-
+param adminUser string = 'bee_admin'
 @description('What password you should enter, minimum lenghth 10')
 @minLength(10)
 @secure()
 param adminPassword string 
 
-// Hard coded variables
-
-
-
 //Virtual Network
 var subnetname = '${vmName}subnet'
 @description('defines the network')
 resource virtualNetwork 'Microsoft.Network/virtualNetworks@2022-11-01' = {
-  name: '${vmName}vnet'
+  name: '${vmName}vnet_1'
   location: location
   properties: {
     addressSpace:{
@@ -143,19 +138,22 @@ resource vm 'Microsoft.Compute/virtualMachines@2023-03-01' ={
 }
 
 //Set VM Autoshut down
-resource autoshutdown 'Microsoft.DevTestLab/labs/schedules@2018-09-15' ={
-  name: '${vmName}_shutdown'
+resource autoshutdown 'Microsoft.DevTestLab/schedules@2018-09-15' ={
+  name: '${vmName}shutdown_segment'
+  location: location
   properties:{
-    dailyRecurrence:{
-      time: autoshutdowntime
-    }
-    timeZoneId:timezone
+    status: 'Enabled'
     notificationSettings:{
       emailRecipient: contact 
       status:'Enabled'
       timeInMinutes: 15
+      notificationLocale: 'en'
     }
-    taskType: 'ComputeVMShutdownTask'
+    dailyRecurrence:{
+      time: autoshutdowntime
+    }
+    timeZoneId:timezone
+    taskType: 'ComputeVmShutdownTask'
     targetResourceId: vm.id
 
   }
