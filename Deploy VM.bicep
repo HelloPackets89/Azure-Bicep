@@ -1,11 +1,16 @@
 // Parameters
-param vmName string
-param adminUser string
-param autoshutdowntime string
+param vmName string =  ('test${auswest}')
+param adminUser string = 'bee_admin'
+param autoshutdowntime string = '2000'
+param location string = 'australiaeast'
+param vmsize string = 'Standard_B1s'
 
 @description('The email address of who created this. I do know how to force an email address so you must enter one')
 param contact string
 
+//This block makes it so the name of my machines are amended with the time GMT + 8
+param baseTime string = utcNow('d')
+param auswest string = dateTimeAdd(baseTime, 'PT8H')
 
 
 
@@ -15,8 +20,7 @@ param contact string
 param adminPassword string 
 
 // Hard coded variables
-var location = 'australiaeast'
-var vmsize = 'Standard_B1s'
+
 
 
 //Virtual Network
