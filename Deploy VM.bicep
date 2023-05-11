@@ -1,5 +1,5 @@
 // Parameters
-param vmName string =  ('test${baseTime}')
+
 param autoshutdowntime string = '2000'
 param location string = 'australiaeast'
 param vmsize string = 'Standard_B1s'
@@ -7,10 +7,12 @@ param vmsize string = 'Standard_B1s'
 @description('The email address of who created this. I do know how to force an email address so you must enter one')
 param contact string = 'test@domain.com'
 
-//This block makes it so the name of my machines are amended with the time GMT + 8
-param baseTime string = utcNow('HH')
-//param auswest string = dateTimeAdd(baseTime, 'PT8H')
+//Assigns a rotating number to the deployment
+param baseTime string = utcNow('mmss')
+param vmName string =  ('test${baseTime}')
 
+//hard coded variable
+var timezone = 'W. Australia Standard Time'
 
 param adminUser string = 'bee_admin'
 @description('What password you should enter, minimum lenghth 10')
@@ -19,7 +21,7 @@ param adminUser string = 'bee_admin'
 param adminPassword string 
 
 //Virtual Network
-var subnetname = '${vmName}subnet'
+
 @description('defines the network')
 resource virtualNetwork 'Microsoft.Network/virtualNetworks@2022-11-01' = {
   name: '${vmName}vnet_1'
@@ -29,16 +31,17 @@ resource virtualNetwork 'Microsoft.Network/virtualNetworks@2022-11-01' = {
       addressPrefixes: [
         '10.0.0.0/16'
       ]
-    }
-    subnets:[
-      {
-        name: subnetname
-        properties:{
-          addressPrefix: '10.0.1.0/24'
-        }
-      }
-    ]
+    }  
   } 
+}
+
+//Subnet Resource
+var subnetname = '${virtualNetwork.name}/default'
+resource subnet 'Microsoft.Network/virtualNetworks/subnets@2022-11-01' = {
+  name: subnetname
+    properties:{
+    addressPrefix: '10.0.1.0/24'
+  }
 }
 
 //Public IP address
@@ -61,13 +64,14 @@ resource vmnic 'Microsoft.Network/networkInterfaces@2022-11-01' = {
   properties:{
     ipConfigurations:[
       {
+        name: 'brandon'
         properties:{
           subnet:{
-            name: subnetname
+            id: subnet.id
           }
           privateIPAllocationMethod:'Dynamic'
           publicIPAddress:{
-            id:pip.id
+            id: pip.id
 
           }
         }
@@ -77,7 +81,6 @@ resource vmnic 'Microsoft.Network/networkInterfaces@2022-11-01' = {
 }
 
 //Actual Virtual Machine
-var timezone = 'W. Australia Standard Time'
 resource vm 'Microsoft.Compute/virtualMachines@2023-03-01' ={
   location: location
   name: vmName
@@ -113,7 +116,7 @@ resource vm 'Microsoft.Compute/virtualMachines@2023-03-01' ={
       osDisk:{
         createOption:'FromImage'
         name:'${vmName}OSdisk'
-        diskSizeGB: 32
+        diskSizeGB: 128
         managedDisk:{
           storageAccountType:'Standard_LRS'
         }
@@ -137,9 +140,9 @@ resource vm 'Microsoft.Compute/virtualMachines@2023-03-01' ={
   
 }
 
-//Set VM Autoshut down
+//Set VM Autoshut down. Apparently "shutdown-computevm-<VMNAME>" is mandatory???
 resource autoshutdown 'Microsoft.DevTestLab/schedules@2018-09-15' ={
-  name: '${vmName}shutdown_segment'
+  name: 'shutdown-computevm-${vmName}'
   location: location
   properties:{
     status: 'Enabled'
