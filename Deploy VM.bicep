@@ -25,13 +25,12 @@ param vmName string =  ('test${baseTime}')
 param timezone string = 'W. Australia Standard Time'
 
 
-param adminUser string = 'bee_admin'
+param adminUser string = 'beeadmin'
 @minLength(10)
 @secure()
 param adminPassword string 
 
 //Virtual Network
-
 @description('defines the network')
 resource virtualNetwork 'Microsoft.Network/virtualNetworks@2022-11-01' = {
   name: '${vmName}vnet_1'
@@ -54,14 +53,7 @@ resource subnet 'Microsoft.Network/virtualNetworks/subnets@2022-11-01' = {
   }
 }
 
-//Public IP address
-resource pip 'Microsoft.Network/publicIPAddresses@2022-11-01' = {
-  name: '${vmName}pip'
-  location: location
-  sku:{
-    name:'Basic'
-  }
-}
+
 
 //VM Nic
 var nicname = '${vmName}nic'
@@ -80,10 +72,6 @@ resource vmnic 'Microsoft.Network/networkInterfaces@2022-11-01' = {
             id: subnet.id
           }
           privateIPAllocationMethod:'Dynamic'
-          publicIPAddress:{
-            id: pip.id
-
-          }
         }
       }
     ]
@@ -169,5 +157,52 @@ resource autoshutdown 'Microsoft.DevTestLab/schedules@2018-09-15' ={
     taskType: 'ComputeVmShutdownTask'
     targetResourceId: vm.id
 
+  }
+}
+
+//Bastion Public IP
+resource pip 'Microsoft.Network/publicIPAddresses@2022-11-01' = {
+  name: '${vmName}bastionpip'
+  location: location
+  properties:{
+    publicIPAllocationMethod: 'Static'
+  }
+  sku:{
+    name:'standard'
+  }
+}
+
+//Bastion Subnet
+var bastionsn = '${virtualNetwork.name}/AzureBastionSubnet'
+resource bastionsubnet 'Microsoft.Network/virtualNetworks/subnets@2022-11-01' = {
+  name: bastionsn
+    properties:{
+    addressPrefix: '10.0.100.0/24'
+  }
+}
+
+//Deploy Bastion. This part takes almost exactly 5 minutes. 
+
+resource bastion 'Microsoft.Network/bastionHosts@2022-11-01' = {
+  name: '${virtualNetwork.name}Bastion'
+  location: location
+  sku: {
+    name:'Basic'
+  }
+  properties: {
+    disableCopyPaste:false
+        ipConfigurations: [
+       {
+        name: 'bastionipconfig' 
+        properties: {
+          publicIPAddress: {
+            id: pip.id
+          }
+          subnet: {
+            id: bastionsubnet.id
+          }
+         }
+       }
+    ]
   }
 }
