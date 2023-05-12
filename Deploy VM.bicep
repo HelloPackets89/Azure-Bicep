@@ -4,18 +4,28 @@ param autoshutdowntime string = '2000'
 param location string = 'australiaeast'
 param vmsize string = 'Standard_B1s'
 
-@description('The email address of who created this. I do know how to force an email address so you must enter one')
+@description('For shutdown notifications')
 param contact string = 'test@domain.com'
 
-//Assigns a rotating number to the deployment
+//Assigns a semi-random number to the deployment so you do not have to pick a name everytime.
+// The use of utcnow might cause issues. 
+// utcnow is used in-lieu of a random number generator which doesn't appear to exist within BICEP. 
 param baseTime string = utcNow('mmss')
 param vmName string =  ('test${baseTime}')
 
-//hard coded variable
-var timezone = 'W. Australia Standard Time'
+//select Australian timezone
+@allowed([
+  'AUS Central Standard Time'
+  'AUS Eastern Standard Time'
+  'Cen. Australia Standard Time'
+  'E. Australia Standard Time'
+  'Tasmania Standard Time'
+  'W. Australia Standard Time'
+])
+param timezone string = 'W. Australia Standard Time'
+
 
 param adminUser string = 'bee_admin'
-@description('What password you should enter, minimum lenghth 10')
 @minLength(10)
 @secure()
 param adminPassword string 
@@ -142,7 +152,7 @@ resource vm 'Microsoft.Compute/virtualMachines@2023-03-01' ={
 
 //Set VM Autoshut down. Apparently "shutdown-computevm-<VMNAME>" is mandatory???
 resource autoshutdown 'Microsoft.DevTestLab/schedules@2018-09-15' ={
-  name: 'shutdown-computevm-${vmName}'
+  name: 'shutdown-computevm-${vm.name}'
   location: location
   properties:{
     status: 'Enabled'
