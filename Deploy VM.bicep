@@ -1,5 +1,9 @@
 // Parameters
+@minLength(10)
+@secure()
+param adminPassword string 
 
+param adminUser string = 'beeadmin'
 param autoshutdowntime string = '2000'
 param location string = 'australiaeast'
 param vmsize string = 'Standard_B1s'
@@ -25,10 +29,149 @@ param vmName string =  ('test${baseTime}')
 param timezone string = 'W. Australia Standard Time'
 
 
-param adminUser string = 'beeadmin'
-@minLength(10)
-@secure()
-param adminPassword string 
+//Network Security Group
+//All the below rules are necessary for this to function with Bastion. This was written manually. 
+resource nsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' ={
+  name: '${vmName}NSG'
+  location: location
+  properties:{
+    securityRules:[
+      {
+        name: 'AllowHttpsInbound'
+        properties:{
+          priority: 120
+          sourcePortRange: '443'
+          protocol: 'Tcp'
+          sourceAddressPrefix: 'Internet'
+          destinationAddressPrefix: '*'
+          access: 'Allow'
+          direction: 'Inbound'
+        } 
+      }
+      {
+        name: 'AllowGatewayManagerInbound'
+        properties:{
+          priority: 130
+          sourcePortRange: '443'
+          protocol: 'Tcp'
+          sourceAddressPrefix: 'GatewayManager'
+          destinationAddressPrefix: '*'
+          access:'Allow'
+          direction:'Inbound'
+        }
+      }
+      {
+        name:'AllowAzureLoadBalancerInbound'
+        properties:{
+          priority: 140
+          sourcePortRange: '443'
+          protocol: 'Tcp'
+          sourceAddressPrefix: 'AzureLoadBalancer'
+          destinationAddressPrefix: '*'
+          access: 'Allow'
+          direction: 'Inbound'
+        }
+      }
+      {
+        name: 'AllowBastionHostCommunication5701'
+        properties:{
+          priority: 150
+          sourcePortRange:'5701'
+          protocol: '*'
+          sourceAddressPrefix: 'VirtualNetwork'
+          destinationAddressPrefix: 'VirtualNetwork'
+          access: 'Allow'
+          direction: 'Inbound'
+        }
+      }
+      {
+        name: 'AllowBastionHostCommunication8080'
+        properties:{
+          priority: 150
+          sourcePortRange:'8080'
+          protocol: '*'
+          sourceAddressPrefix: 'VirtualNetwork'
+          destinationAddressPrefix: 'VirtualNetwork'
+          access: 'Allow'
+          direction: 'Inbound'
+        }
+      }
+      {
+        name: 'AllowSshRdpOutbound22'
+        properties:{
+          priority: 100
+          sourcePortRange:'22'
+          protocol: '*'
+          sourceAddressPrefix: '*'
+          destinationAddressPrefix: 'VirtualNetwork'
+          access: 'Allow'
+          direction: 'Outbound'
+        }
+      }
+      {
+        name: 'AllowSshRdpOutbound3389'
+        properties:{
+          priority: 100
+          sourcePortRange:'3389' 
+          protocol: '*'
+          sourceAddressPrefix: '*'
+          destinationAddressPrefix: 'VirtualNetwork'
+          access: 'Allow'
+          direction: 'Outbound'
+        }
+      }
+      {
+        name: 'AllowAzureCloudOutbound'
+        properties:{
+          priority: 110
+          sourcePortRange:'443'
+          protocol: 'Tcp'
+          sourceAddressPrefix: '*'
+          destinationAddressPrefix: 'AzureCloud'
+          access: 'Allow'
+          direction: 'Outbound'
+        }
+      }
+      {
+        name: 'AllowBastionCommunication8080'
+        properties:{
+          priority: 120
+          sourcePortRange:'8080'
+          protocol: '*'
+          sourceAddressPrefix: 'VirtualNetwork'
+          destinationAddressPrefix: 'VirtualNetwork'
+          access: 'Allow'
+          direction: 'Outbound'
+        }
+      }
+      {
+        name: 'AllowBastionCommunication5701'
+        properties:{
+          priority: 120
+          sourcePortRange:'8080'
+          protocol: '*'
+          sourceAddressPrefix: 'VirtualNetwork'
+          destinationAddressPrefix: 'VirtualNetwork'
+          access: 'Allow'
+          direction: 'Outbound'
+        }
+      }
+      {
+        name: 'AllowHttpOutbound'
+        properties:{
+          priority: 130
+          sourcePortRange: '80'
+          protocol: '*'
+          sourceAddressPrefix: '*'
+          destinationAddressPrefix: 'Internet'
+          access: 'Allow'
+          direction: 'Outbound'
+        }
+      }
+    ]
+  }
+}
+
 
 //Virtual Network
 @description('defines the network')
@@ -44,12 +187,15 @@ resource virtualNetwork 'Microsoft.Network/virtualNetworks@2022-11-01' = {
   } 
 }
 
-//Subnet Resource
+//Default Subnet
 var subnetname = '${virtualNetwork.name}/default'
 resource subnet 'Microsoft.Network/virtualNetworks/subnets@2022-11-01' = {
   name: subnetname
     properties:{
     addressPrefix: '10.0.1.0/24'
+    networkSecurityGroup: {
+      id: nsg.id
+    }
   }
 }
 
@@ -178,6 +324,9 @@ resource bastionsubnet 'Microsoft.Network/virtualNetworks/subnets@2022-11-01' = 
   name: bastionsn
     properties:{
     addressPrefix: '10.0.100.0/24'
+    networkSecurityGroup:{
+      id:nsg.id
+    }
   }
 }
 
