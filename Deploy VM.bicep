@@ -1,3 +1,6 @@
+// This BICEP script deploys a VM inside an NSG with Bastion access. 
+
+
 // Parameters
 @minLength(10)
 @secure()
@@ -6,14 +9,13 @@ param adminPassword string
 param adminUser string = 'beeadmin'
 param autoshutdowntime string = '2000'
 param location string = 'australiaeast'
-param vmsize string = 'Standard_B1s'
+param vmsize string = 'Standard_B2s'
 
 @description('For shutdown notifications')
 param contact string = 'test@domain.com'
 
-//Assigns a semi-random number to the deployment so you do not have to pick a name everytime.
-// The use of utcnow might cause issues. 
-// utcnow is used in-lieu of a random number generator which doesn't appear to exist within BICEP. 
+//Assigns a semi-random number to the deployment.
+// utcnow is used in-lieu of a random number generator. May cause issues. 
 param baseTime string = utcNow('mmss')
 param vmName string =  ('test${baseTime}')
 
@@ -30,7 +32,7 @@ param timezone string = 'W. Australia Standard Time'
 
 
 //Network Security Group
-//All the below rules are necessary for this to function with Bastion. This was written manually. 
+//All entries are required for Bastion. 
 resource nsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' ={
   name: '${vmName}NSG'
   location: location
@@ -40,7 +42,8 @@ resource nsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' ={
         name: 'AllowHttpsInbound'
         properties:{
           priority: 120
-          sourcePortRange: '443'
+          sourcePortRange: '*'
+          destinationPortRange: '443'
           protocol: 'Tcp'
           sourceAddressPrefix: 'Internet'
           destinationAddressPrefix: '*'
@@ -52,7 +55,8 @@ resource nsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' ={
         name: 'AllowGatewayManagerInbound'
         properties:{
           priority: 130
-          sourcePortRange: '443'
+          sourcePortRange: '*'
+          destinationPortRange: '443'
           protocol: 'Tcp'
           sourceAddressPrefix: 'GatewayManager'
           destinationAddressPrefix: '*'
@@ -64,7 +68,8 @@ resource nsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' ={
         name:'AllowAzureLoadBalancerInbound'
         properties:{
           priority: 140
-          sourcePortRange: '443'
+          sourcePortRange: '*'
+          destinationPortRange: '443'
           protocol: 'Tcp'
           sourceAddressPrefix: 'AzureLoadBalancer'
           destinationAddressPrefix: '*'
@@ -73,10 +78,14 @@ resource nsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' ={
         }
       }
       {
-        name: 'AllowBastionHostCommunication5701'
+        name: 'AllowBastionHostCommunication'
         properties:{
           priority: 150
-          sourcePortRange:'5701'
+          sourcePortRange:'*'
+          destinationPortRanges: [
+            '8080'
+            '5701'
+          ]
           protocol: '*'
           sourceAddressPrefix: 'VirtualNetwork'
           destinationAddressPrefix: 'VirtualNetwork'
@@ -85,34 +94,14 @@ resource nsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' ={
         }
       }
       {
-        name: 'AllowBastionHostCommunication8080'
-        properties:{
-          priority: 150
-          sourcePortRange:'8080'
-          protocol: '*'
-          sourceAddressPrefix: 'VirtualNetwork'
-          destinationAddressPrefix: 'VirtualNetwork'
-          access: 'Allow'
-          direction: 'Inbound'
-        }
-      }
-      {
-        name: 'AllowSshRdpOutbound22'
+        name: 'AllowSshRdpOutbound'
         properties:{
           priority: 100
-          sourcePortRange:'22'
-          protocol: '*'
-          sourceAddressPrefix: '*'
-          destinationAddressPrefix: 'VirtualNetwork'
-          access: 'Allow'
-          direction: 'Outbound'
-        }
-      }
-      {
-        name: 'AllowSshRdpOutbound3389'
-        properties:{
-          priority: 100
-          sourcePortRange:'3389' 
+          sourcePortRange:'*'
+          destinationPortRanges: [
+            '22'
+            '3389'
+          ]
           protocol: '*'
           sourceAddressPrefix: '*'
           destinationAddressPrefix: 'VirtualNetwork'
@@ -124,7 +113,8 @@ resource nsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' ={
         name: 'AllowAzureCloudOutbound'
         properties:{
           priority: 110
-          sourcePortRange:'443'
+          sourcePortRange:'*'
+          destinationPortRange: '443'
           protocol: 'Tcp'
           sourceAddressPrefix: '*'
           destinationAddressPrefix: 'AzureCloud'
@@ -133,22 +123,14 @@ resource nsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' ={
         }
       }
       {
-        name: 'AllowBastionCommunication8080'
+        name: 'AllowBastionCommunication'
         properties:{
           priority: 120
-          sourcePortRange:'8080'
-          protocol: '*'
-          sourceAddressPrefix: 'VirtualNetwork'
-          destinationAddressPrefix: 'VirtualNetwork'
-          access: 'Allow'
-          direction: 'Outbound'
-        }
-      }
-      {
-        name: 'AllowBastionCommunication5701'
-        properties:{
-          priority: 120
-          sourcePortRange:'8080'
+          sourcePortRange:'*'
+          destinationPortRanges: [
+            '8080'
+            '5701'
+          ]
           protocol: '*'
           sourceAddressPrefix: 'VirtualNetwork'
           destinationAddressPrefix: 'VirtualNetwork'
@@ -160,7 +142,8 @@ resource nsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' ={
         name: 'AllowHttpOutbound'
         properties:{
           priority: 130
-          sourcePortRange: '80'
+          sourcePortRange: '*'
+          destinationPortRange: '80'
           protocol: '*'
           sourceAddressPrefix: '*'
           destinationAddressPrefix: 'Internet'
@@ -195,6 +178,21 @@ resource subnet 'Microsoft.Network/virtualNetworks/subnets@2022-11-01' = {
     addressPrefix: '10.0.1.0/24'
     networkSecurityGroup: {
       id: nsg.id
+    }
+  }
+}
+
+//Bastion Subnet. This has been set to depend on the default subnet to avoid a conflicted parallel deployment.
+var bastionsn = '${virtualNetwork.name}/AzureBastionSubnet'
+resource bastionsubnet 'Microsoft.Network/virtualNetworks/subnets@2022-11-01' = {
+  name: bastionsn
+  dependsOn: [
+    subnet
+  ]
+    properties:{
+    addressPrefix: '10.0.100.0/24'
+    networkSecurityGroup:{
+      id:nsg.id
     }
   }
 }
@@ -315,18 +313,6 @@ resource pip 'Microsoft.Network/publicIPAddresses@2022-11-01' = {
   }
   sku:{
     name:'standard'
-  }
-}
-
-//Bastion Subnet
-var bastionsn = '${virtualNetwork.name}/AzureBastionSubnet'
-resource bastionsubnet 'Microsoft.Network/virtualNetworks/subnets@2022-11-01' = {
-  name: bastionsn
-    properties:{
-    addressPrefix: '10.0.100.0/24'
-    networkSecurityGroup:{
-      id:nsg.id
-    }
   }
 }
 
