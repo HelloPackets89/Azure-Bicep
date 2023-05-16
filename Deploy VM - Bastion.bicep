@@ -183,6 +183,7 @@ resource subnet 'Microsoft.Network/virtualNetworks/subnets@2022-11-01' = {
 }
 
 //Bastion Subnet. This has been set to depend on the default subnet to avoid a conflicted parallel deployment.
+//MUST be called "AzureBastionSubnet" with a minimum /26 subnet.
 var bastionsn = '${virtualNetwork.name}/AzureBastionSubnet'
 resource bastionsubnet 'Microsoft.Network/virtualNetworks/subnets@2022-11-01' = {
   name: bastionsn
@@ -282,7 +283,7 @@ resource vm 'Microsoft.Compute/virtualMachines@2023-03-01' ={
   
 }
 
-//Set VM Autoshut down. Apparently "shutdown-computevm-<VMNAME>" is mandatory???
+//Set VM Autoshut down. "shutdown-computevm-<VMNAME>" is a reuqired name.
 resource autoshutdown 'Microsoft.DevTestLab/schedules@2018-09-15' ={
   name: 'shutdown-computevm-${vm.name}'
   location: location
@@ -304,7 +305,7 @@ resource autoshutdown 'Microsoft.DevTestLab/schedules@2018-09-15' ={
   }
 }
 
-//Bastion Public IP
+//Bastion Public IP. Must be Static / Standard.
 resource pip 'Microsoft.Network/publicIPAddresses@2022-11-01' = {
   name: '${vmName}bastionpip'
   location: location
