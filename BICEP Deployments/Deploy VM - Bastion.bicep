@@ -283,7 +283,7 @@ resource vm 'Microsoft.Compute/virtualMachines@2023-03-01' ={
   
 }
 
-//Set VM Autoshut down. "shutdown-computevm-<VMNAME>" is a reuqired name.
+//Set VM Autoshut down. "shutdown-computevm-<VMNAME>" is a required name.
 resource autoshutdown 'Microsoft.DevTestLab/schedules@2018-09-15' ={
   name: 'shutdown-computevm-${vm.name}'
   location: location

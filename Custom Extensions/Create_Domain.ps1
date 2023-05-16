@@ -25,17 +25,3 @@ Install-ADDSForest -DomainName $domainName `
     -LogPath "C:\Windows\NTDS" `
     -SysvolPath "C:\Windows\SYSVOL" 
 
-#Create a scheduled task to create a new domain admin on start up
-$taskName = "CreateAdminUser"
-#This defines the task that creates the domain. It then runs a command to unregister the task so a new admin account isn't made everytime the server starts up. 
-$action = New-ScheduledTaskAction -Execute "powershell.exe" `
-    -Argument "-Command {Import-Module ActiveDirectory; New-ADUser -SamAccountName 'dadmin' -UserPassword (ConvertTo-SecureString -String 'YourPassword' -AsPlainText -Force) -Name 'Domain Admin' -GivenName 'Domain' -Surname 'Admin' -Enabled $true; `
-     Add-ADGroupMember -Identity 'Domain Admins' -Members 'dadmin'; `
-     Unregister-ScheduledTask -TaskName `"$taskName`" -Confirm:$false}"
-$trigger = New-ScheduledTaskTrigger -AtStartup
-$principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount
-
-# Register the scheduled task
-Register-ScheduledTask -Action $action -Trigger $trigger -TaskName $taskName -Description "#Create a scheduled task to create a new domain admin on start up" -Principal $principal
-
-#Restart-Computer -Force
