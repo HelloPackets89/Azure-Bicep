@@ -1,18 +1,19 @@
-// This BICEP script deploys a standalone VM
+// This BICEP script deploys a standalone VM with a public IP
+// This deployment spins up faster and is cheaper than using a Bastion accessible lab
+// Access to the VM in this deployment is via RDP , 3389 has been opened in the NSG.
+// This script sets the PIP DNS Name to the name of the host. 
 
 
 // Parameters
 @minLength(10)
 @secure()
 param adminPassword string 
-
 param adminUser string = 'beeadmin'
+param vmsize string = 'Standard_B2s'
+//For shutdown notifications
+param contact string = 'test@domain.com'
 param autoshutdowntime string = '2000'
 param location string = 'australiaeast'
-param vmsize string = 'Standard_B2s'
-
-@description('For shutdown notifications')
-param contact string = 'test@domain.com'
 
 //Assigns a semi-random number to the deployment.
 // utcnow is used in-lieu of a random number generator. May cause issues. 
@@ -25,12 +26,34 @@ param vmName string =  ('test${baseTime}')
   'AUS Eastern Standard Time'
   'Cen. Australia Standard Time'
   'E. Australia Standard Time'
-  'Tasmania Standard Time'
   'W. Australia Standard Time'
+  'Tasmania Standard Time'
 ])
 param timezone string = 'W. Australia Standard Time'
 
+//Network Security Group
+resource nsg 'Microsoft.Network/networkSecurityGroups@2022-11-01' ={
+  name: '${vmName}NSG'
+  location:location
+  properties:{
+    securityRules:[
+      {
+        name:'RDP'
+        properties:{
+          access: 'Allow'
+          direction: 'Inbound'
+          priority: 100
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRange: '3389'
+          destinationAddressPrefix: '*'
+          sourceAddressPrefix: '*'
 
+        }
+      }
+    ]
+  }
+}
 
 //Virtual Network
 @description('defines the network')
@@ -55,6 +78,22 @@ resource subnet 'Microsoft.Network/virtualNetworks/subnets@2022-11-01' = {
   }
 }
 
+//VM PIP
+resource pip 'Microsoft.Network/publicIPAddresses@2022-11-01' = {
+  name: '${vmName}pip'
+  sku:{
+    name:'Basic'
+  }
+  location: location
+  properties:{
+    publicIPAllocationMethod:'Dynamic'
+    dnsSettings:{
+      domainNameLabel: vmName
+    }
+       
+  }
+}
+
 //VM Nic
 var nicname = '${vmName}nic'
 resource vmnic 'Microsoft.Network/networkInterfaces@2022-11-01' = {
@@ -64,6 +103,9 @@ resource vmnic 'Microsoft.Network/networkInterfaces@2022-11-01' = {
     virtualNetwork
   ]
   properties:{
+    networkSecurityGroup: {
+      id: nsg.id
+    }
     ipConfigurations:[
       {
         name: 'interface1'
@@ -72,11 +114,16 @@ resource vmnic 'Microsoft.Network/networkInterfaces@2022-11-01' = {
             id: subnet.id
           }
           privateIPAllocationMethod:'Dynamic'
-        }
+          publicIPAddress:{
+            id: pip.id
+          } 
+        } 
       }
     ]
   }
 }
+
+
 
 //Actual Virtual Machine
 resource vm 'Microsoft.Compute/virtualMachines@2023-03-01' ={
