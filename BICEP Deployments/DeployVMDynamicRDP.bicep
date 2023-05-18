@@ -2,7 +2,7 @@
 // This deployment spins up faster and is cheaper than using a Bastion accessible lab
 // Access to the VM in this deployment is via RDP , 3389 has been opened in the NSG.
 // This script sets the PIP DNS Name to the name of the host. 
-// This script can be ran out of the box or with a script if you want to set a static hostname
+// Will assign a random name to VMs if vmName isn't defined during deployment
 
 
 // Parameters
