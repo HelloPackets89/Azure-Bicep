@@ -85,7 +85,7 @@ if ($deleteConfirmation -eq 'y') {
                 }
             }
             Write-Host "Operation completed in $($executionTime.TotalSeconds) seconds."
-            Write-Host "Checking Remaining Contents..." -ForegroundColor Yellow
+            Write-Host "Checking Remaining Contents in $selectedResourceGroup..." -ForegroundColor Yellow
             sleep 5
             try {
                 $remainingResources = Get-AzResource -ResourceGroupName $selectedResourceGroup -ErrorAction SilentlyContinue
