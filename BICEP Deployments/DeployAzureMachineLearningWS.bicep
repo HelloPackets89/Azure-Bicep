@@ -1,5 +1,6 @@
 // This script quickly deploys an Azure Machine Learning Workspace
 // This is used to quickly spin up a space for lab/development work
+// This is  WIP and not yet functional
 
 param location string = 'australiaeast'
 
