@@ -4,9 +4,9 @@ This script will seek your available subscriptions, then your resource groups.
 
 It will then display the resources within those groups and provide you the option of deleting everything. 
 
-It will run until everything is gone. Depending on the contents of your RG, it might get stuck.  
+It will run until everything is gone.
 
-This script is only intended for cleaning up personal environments. 
+This script is only intended for cleaning up personal lab environments. 
 
 Do not run this inside any Corporate Directory. 
 
