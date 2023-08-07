@@ -1,6 +1,7 @@
 // This BICEP script deploys a standalone VM with a public IP and static hostname
 // This will then create an Automation account with accompanying LAW to test AUM
-// Current WIP and is not functional
+// This is script is about 80% of the way there. 
+//It deploys the VM and automatically connects it to the LAW. This script fails when attempting to deploy the Azure Update Manager, which is a small (but critical) component of the overall workflow. 
 
 
 
@@ -227,7 +228,7 @@ resource law 'Microsoft.OperationalInsights/workspaces@2020-03-01-preview' = {
   }
 }
 
-resource automationAccount 'Microsoft.Automation/automationAccounts@2020-01-13-preview' = {
+resource automationAccount 'Microsoft.Automation/automationAccounts@2022-08-08' = {
   name: automationAccountName
   location: location
   properties: {
@@ -247,6 +248,24 @@ resource law_link 'Microsoft.OperationalInsights/workspaces/linkedServices@2020-
   }
 }
 
+resource MonitoringAgentExtension 'Microsoft.Compute/virtualMachines/extensions@2023-03-01' ={
+  parent: vm
+  name: 'MicrosoftMonitoringAgent'
+  location: location
+  properties:{
+    publisher: 'Microsoft.EnterpriseCloud.Monitoring'
+    type: 'MicrosoftMonitoringAgent'
+    typeHandlerVersion: '1.0'
+    autoUpgradeMinorVersion: true
+    protectedSettings: {
+      workspaceKey: listKeys(law.id, law.apiVersion).primarySharedKey
+    }
+    settings: {
+      workspaceId: law.properties.customerId 
+    }
+  }
+}
+
 
 //all the below properties are required. Removing any of the below will result in deployment errors. 
 resource updateManagement 'Microsoft.Automation/automationAccounts/softwareUpdateConfigurations@2019-06-01' ={
@@ -257,6 +276,7 @@ resource updateManagement 'Microsoft.Automation/automationAccounts/softwareUpdat
       law_link
       vm
       automationAccount
+      MonitoringAgentExtension
   ]
   properties:{
     updateConfiguration: {
@@ -274,8 +294,8 @@ resource updateManagement 'Microsoft.Automation/automationAccounts/softwareUpdat
     }
     scheduleInfo: {
       frequency: 'Week'
-      startTime:'2023-07-27T18:00:00+08:00'
-      expiryTime:'2033-07-27T18:00:00+08:00'
+      startTime:'2023-12-27T18:00:00+08:00'
+      expiryTime:'2033-12-27T18:00:00+08:00'
       timeZone: timezone
       isEnabled: true 
       interval: 1
