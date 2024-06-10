@@ -1,12 +1,24 @@
 param email string
 param company string
-param APIname string
+
+//Name of your API Management resource
+param APIMname string
+// Name of your existing FunctionApp resource
+param FunctionAppName string
+
+//Name of your existing AppInsights resource
 param AppInsightsname string
+
+//The Insights ID (long)
 param AppInsightsID string
 
+//define existing functionapp
+resource FunctionApp 'Microsoft.Web/sites@2023-12-01' existing = {
+  name: FunctionAppName
+}
 
 resource APIManagement 'Microsoft.ApiManagement/service@2022-09-01-preview' = {
-  name: APIname
+  name: APIMname
   location: resourceGroup().location
   sku: {
     capacity: 0
@@ -21,29 +33,28 @@ resource APIManagement 'Microsoft.ApiManagement/service@2022-09-01-preview' = {
   }
 }
 
+resource API 'Microsoft.ApiManagement/service/apis@2022-08-01' = {
+  name: FunctionApp.name
+  parent: APIManagement
+  properties: {
+    displayName: FunctionApp.name
+    path: FunctionApp.name
+    protocols:[
+      'https'
+    ]
+    serviceUrl: 'https://${FunctionApp.name}azurewebsites.net'
+    
+  }
+}
 
 resource logger 'Microsoft.ApiManagement/service/loggers@2022-08-01' ={
-  name: '${APIManagement.name}/${AppInsightsname}'
+  name: 'AppInsightsname'
+  parent: APIManagement
   properties:{
     loggerType: 'applicationInsights'
     resourceId: AppInsightsID
     credentials:{
       instrumentationKey: reference(AppInsightsID, '2015-05-01').InstrumentationKey
-    }
-  }
-}
-
-//Note Child resources need to include their parents in their name. 
-//ARM checks for this by ensuring child resources have an extra 'segment' 
-//In the below example I'm using logger.name because that contains both the grandparent and parent segments. 
-resource diagnostics 'Microsoft.ApiManagement/service/apis/diagnostics@2022-08-01' = {
-  name: '${logger.name}/default1'
-  properties: {
-    loggerId: '${APIManagement.id}/loggers/${logger.name}'
-    alwaysLog: 'allErrors'
-    sampling: {
-      percentage: 100
-      samplingType: 'fixed'
     }
   }
 }
