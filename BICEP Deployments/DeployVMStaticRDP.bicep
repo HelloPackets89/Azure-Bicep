@@ -25,6 +25,12 @@ param baseTime string = utcNow('mmss')
 param vmName string =  ('test${baseTime}')
 
 
+//Operating System Parameters
+param publisher string = 'MicrosoftWindowsServer'
+param offer string = 'WindowsServer'
+param sku string = '2022-Datacenter'
+param version string = 'latest'
+param disk string = 'Standard_LRS'
 
 //select Australian timezone
 @allowed([
@@ -159,17 +165,17 @@ resource vm 'Microsoft.Compute/virtualMachines@2023-03-01' ={
     }
     storageProfile:{
       imageReference:{
-        publisher:'MicrosoftWindowsServer'
-        offer: 'WindowsServer'
-        sku: '2022-Datacenter'
-        version: 'latest'
+        publisher: publisher
+        offer: offer
+        sku: sku
+        version: version
       }
       osDisk:{
         createOption:'FromImage'
         name:'${vmName}OSdisk'
         diskSizeGB: 128
         managedDisk:{
-          storageAccountType:'Standard_LRS'
+          storageAccountType:disk
         }
       }
     }
