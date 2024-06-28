@@ -1,5 +1,5 @@
 param location string = resourceGroup().location
-param name string = 'beeresume'
+param name string = 'beeresumequery'
 
 resource storageaccount 'Microsoft.Storage/storageAccounts@2023-04-01' = {
   name: '${name}storage'
@@ -47,7 +47,7 @@ resource ResumeFunctionApp 'Microsoft.Web/sites@2023-12-01' = {
     serverFarmId:hostingplan.id
     siteConfig:{
 //      use32BitWorkerProcess:true //this allows me to use the FREEEEE tier
-      alwaysOn:true
+      alwaysOn:false
       linuxFxVersion: 'python|3.11'
       appSettings:[
         {

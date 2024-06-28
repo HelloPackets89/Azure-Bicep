@@ -48,7 +48,7 @@ resource API 'Microsoft.ApiManagement/service/apis@2022-08-01' = {
 }
 
 resource logger 'Microsoft.ApiManagement/service/loggers@2022-08-01' ={
-  name: 'AppInsightsname'
+  name: AppInsightsname
   parent: APIManagement
   properties:{
     loggerType: 'applicationInsights'
