@@ -49,6 +49,11 @@ resource ResumeFunctionApp 'Microsoft.Web/sites@2023-12-01' = {
 //      use32BitWorkerProcess:true //this allows me to use the FREEEEE tier
       alwaysOn:false
       linuxFxVersion: 'python|3.11'
+      cors:{
+        allowedOrigins: [
+          'https://portal.azure.com'
+        ]
+      }
       appSettings:[
         {
           name: 'APPINSIGHTS_INSTRUMENTATIONKEY'
@@ -82,6 +87,8 @@ resource ResumeFunctionApp 'Microsoft.Web/sites@2023-12-01' = {
     }
   }
 }
+
+
 /*
 resource functionappstorageslot 'Microsoft.Web/sites/slots@2023-12-01' = {
   name: '${name}functionstaging'
