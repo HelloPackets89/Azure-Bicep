@@ -1,9 +1,16 @@
-// This BICEP script deploys a standalone VM with a public IP
-// This deployment spins up faster and is cheaper than using a Bastion accessible lab
-// Access to the VM in this deployment is via RDP , 3389 has been opened in the NSG.
-// This script sets the PIP DNS Name to the name of the host. 
-// Will assign a random name to VMs if vmName isn't defined during deployment
+/* 
+This script deploys multiple VM using the integer index method. It deploys a mix of windows
+and Linux VMs. The index notes that once there are more than 4 windows VMs deployed, it'll 
+start deploying ubuntu VMs. The supporting resources have also had to be deployed via integers. 
+Setting the number for each resource individually is unlikely to be best way to do it
+there is space for refinement in this script due to this. 
 
+This BICEP script deploys a standalone VM with a public IP
+This deployment spins up faster and is cheaper than using a Bastion accessible lab
+Access to the VM in this deployment is via RDP , 3389 has been opened in the NSG.
+This script sets the PIP DNS Name to the name of the host. 
+Will assign a random name to VMs if vmName isn't defined during deployment
+*/
 
 // Parameters
 
@@ -11,16 +18,20 @@
 @secure()
 param adminPassword string 
 param adminUser string = 'beeadmin'
-param vmsize string = 'Standard_B2s'
+param vmsize string = 'Standard_B1ms'
 //For shutdown notifications
 param contact string = 'test@domain.com'
 param autoshutdowntime string = '2000'
-param location string = 'australiaeast'
+param location string = resourceGroup().location
+param workspaceid string
+@secure()
+param workspacekey string
 
 //Assigns a semi-random number to the deployment.
 // utcnow is used in-lieu of a random number generator. May cause issues. 
-param baseTime string = utcNow('mmss')
-param vmName string =  ('test${baseTime}')
+//param baseTime string = utcNow('mmss')
+//param vmName string =  ('test${baseTime}')
+param vmName string =  'brandotesto'
 
 //select Australian timezone
 @allowed([
@@ -81,8 +92,8 @@ resource subnet 'Microsoft.Network/virtualNetworks/subnets@2022-11-01' = {
 }
 
 //VM PIP
-resource pip 'Microsoft.Network/publicIPAddresses@2022-11-01' = {
-  name: '${vmName}pip'
+resource pip 'Microsoft.Network/publicIPAddresses@2022-11-01' = [for i in range(1, 8): {
+  name: '${vmName}${i}pip'
   sku:{
     name:'Basic'
   }
@@ -90,16 +101,15 @@ resource pip 'Microsoft.Network/publicIPAddresses@2022-11-01' = {
   properties:{
     publicIPAllocationMethod:'Dynamic'
     dnsSettings:{
-      domainNameLabel: vmName
+      domainNameLabel: '${vmName}${i}'
     }
        
   }
-}
+}]
 
 //VM Nic
-var nicname = '${vmName}nic'
-resource vmnic 'Microsoft.Network/networkInterfaces@2022-11-01' = {
-  name: nicname
+resource vmnic 'Microsoft.Network/networkInterfaces@2022-11-01' = [for i in range(1, 8): {
+  name: '${vmName}${i}nic'
   location: location
   dependsOn: [
     virtualNetwork
@@ -117,49 +127,52 @@ resource vmnic 'Microsoft.Network/networkInterfaces@2022-11-01' = {
           }
           privateIPAllocationMethod:'Dynamic'
           publicIPAddress:{
-            id: pip.id
+            id: pip[i-1].id
           } 
         } 
       }
     ]
   }
-}
+}]
 
 
 
 //Actual Virtual Machine
-resource vm 'Microsoft.Compute/virtualMachines@2023-03-01' ={
+resource vm 'Microsoft.Compute/virtualMachines@2023-03-01' = [for i in range(1, 8): {
+  name: '${vmName}${i}'
   location: location
-  name: vmName
   properties:{
     hardwareProfile:{
-      vmSize:vmsize  
+      vmSize:vmsize
     }
     networkProfile:{
       networkInterfaces:[
         {
-          id: vmnic.id
+          id: vmnic[i-1].id
         }
       ]
     }
     osProfile:{
       adminPassword:adminPassword
       adminUsername:adminUser
-      computerName:vmName
-      windowsConfiguration:{
+      computerName:'${vmName}${i}'
+      windowsConfiguration: i <= 4 ? {
         timeZone: timezone
-      }
+      } : null
+      linuxConfiguration: i > 4 ? {
+        disablePasswordAuthentication: false
+      } : null
     }
     storageProfile:{
       imageReference:{
-        publisher:'MicrosoftWindowsServer'
-        offer: 'WindowsServer'
-        sku: '2022-Datacenter'
+        publisher: i <= 4 ? 'MicrosoftWindowsServer' : 'Canonical'
+        offer: i <= 4 ? 'WindowsServer' : 'UbuntuServer'
+        sku: i <= 4 ? '2022-Datacenter' : '18.04-LTS'
         version: 'latest'
       }
       osDisk:{
         createOption:'FromImage'
-        name:'${vmName}OSdisk'
+        name:'${vmName}${i}OSdisk'
         diskSizeGB: 128
         managedDisk:{
           storageAccountType:'Standard_LRS'
@@ -173,19 +186,18 @@ resource vm 'Microsoft.Compute/virtualMachines@2023-03-01' ={
     }
     scheduledEventsProfile:{
       osImageNotificationProfile:{
-        enable:true        
+        enable:true
       }
       terminateNotificationProfile:{
         enable:true
       }
     }
   }
-  
-}
+}]
 
-//Set VM Autoshut down. "shutdown-computevm-<VMNAME>" is a reuqired name.
-resource autoshutdown 'Microsoft.DevTestLab/schedules@2018-09-15' ={
-  name: 'shutdown-computevm-${vm.name}'
+//Set VM Autoshut down. "shutdown-computevm-<VMNAME>" is a required name.
+resource autoshutdown 'Microsoft.DevTestLab/schedules@2018-09-15' = [for i in range(1, 8): {
+  name: 'shutdown-computevm-${vm[i-1].name}'
   location: location
   properties:{
     status: 'Enabled'
@@ -200,7 +212,28 @@ resource autoshutdown 'Microsoft.DevTestLab/schedules@2018-09-15' ={
     }
     timeZoneId:timezone
     taskType: 'ComputeVmShutdownTask'
-    targetResourceId: vm.id
-
+    targetResourceId: vm[i-1].id
   }
-}
+}]
+
+
+// MMA Extension for all VMs.
+// Name changes based on vm number. <2 = MMAExtension 3-4 = Microsoft Monitoring Agent. >4 = OMSAgent
+resource mmaExtensions 'Microsoft.Compute/virtualMachines/extensions@2023-09-01' = [for i in range(0, 8): {
+  name: i < 2 ? '${vm[i].name}/MMAExtension' : (i < 4 ? '${vm[i].name}/MicrosoftMonitoringAgent' : '${vm[i].name}/OmsAgentForLinux')
+  location: location
+  properties: {
+    autoUpgradeMinorVersion: false
+    enableAutomaticUpgrade: false
+    forceUpdateTag: '1.0'
+    publisher: 'Microsoft.EnterpriseCloud.Monitoring'
+    type: i < 4 ? 'MicrosoftMonitoringAgent' : 'OmsAgentForLinux'
+    typeHandlerVersion: i < 4 ? '1.0' : '1.12'
+    settings: {
+      workspaceId: workspaceid
+    }
+    protectedSettings: {
+      workspaceKey: workspacekey
+    }
+  }
+}]

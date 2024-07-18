@@ -4,9 +4,9 @@ This script will seek your available subscriptions, then your resource groups.
 
 It will then display the resources within those groups and provide you the option of deleting everything. 
 
-It will run until everything is gone.
+It will run until everything is gone. Depending on the contents of your RG, it might get stuck.  
 
-This script is only intended for cleaning up personal lab environments. 
+This script is only intended for cleaning up personal environments. 
 
 Do not run this inside any Corporate Directory. 
 
@@ -63,9 +63,9 @@ if ($userInput -match '^\d+$' -and $userInput -gt 0 -and $userInput -le $resourc
     Get-AzResource -ResourceGroupName $selectedResourceGroup | select ResourceName, ResourceType | Format-Table
 
 
-###############################################
-# This block performs the first workspace wipe#
-###############################################
+################################################################################
+# This block is a loop that wipes, checks for anything remaining and tries again#
+################################################################################
 # Ask the user if they want to delete everything in this resource group
 Write-host 'Do you want to delete everything in this resource group? (y/n)' -ForegroundColor Cyan
 $deleteConfirmation = Read-Host
@@ -84,7 +84,7 @@ if ($deleteConfirmation -eq 'y') {
                     Write-Host "Error occurred, attempting again" -ForegroundColor Red
                 }
             }
-            Write-Host "Operation completed in $($executionTime.TotalSeconds) seconds."
+            Write-Host "Operation completed in $($executionTime.TotalSeconds) seconds at $(Get-Date -Format g)."
             Write-Host "Checking Remaining Contents in $selectedResourceGroup..." -ForegroundColor Yellow
             sleep 5
             try {
@@ -94,10 +94,16 @@ if ($deleteConfirmation -eq 'y') {
             catch {
                 Write-Host "Error occurred when checking remaining resources, attempting again" -ForegroundColor Red
             }
-        } while ($remainingResources)
+
+            # Ask to wipe again if no resources found. This is so i can keep running it while troubleshooting. 
+            if (-not $remainingResources) {
+                Write-host 'No resources detected. Do you want to wipe again? (yy)' -ForegroundColor Cyan
+                $wipeAgainConfirmation = Read-Host
+            }
+        } while ($remainingResources -or ($wipeAgainConfirmation -eq 'yy' -and -not $remainingResources))
     }
 }
-    }
+  }
  else {
     Write-Host "Invalid input. Please enter a number between 1 and $($resourceGroups.Count)."
 }

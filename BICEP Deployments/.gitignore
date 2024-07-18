@@ -1,2 +1,3 @@
 *.bicepparam
 settings.json
+*.parameters.json
