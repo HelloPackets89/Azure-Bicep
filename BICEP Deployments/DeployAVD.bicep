@@ -1,7 +1,6 @@
 //Brandon's first AVD BICEP Script. Created by referencing the portal creation wizard, MS Learn, VS Code Hints and Trial n Error.
 param vmsize string = 'Standard_B2s'
 param location string = 'australiaeast'
-param subnetid string = '/subscriptions/16e3ab1d-adcd-413c-b74c-fa3e63f8d0b1/resourceGroups/Lab-Resources/providers/Microsoft.Network/virtualNetworks/bk_vnet/subnets/AVD'
 param useruri string = 'https://bklabkv.vault.azure.net/secrets/vmpassword/3f8ff853ccfb4aec811a39dbf54121c9'
 param passworduri string = 'https://bklabkv.vault.azure.net/secrets/vmuser/0d460fb32e0943f3b4357eb812973417'
 //Assigns a semi-random number to the deployment.
